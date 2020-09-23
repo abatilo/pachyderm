@@ -2521,6 +2521,21 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}, nil
 	}
 
+	if strings.HasPrefix(token, "Bearer ") {
+		idToken := strings.Split(token, " ")
+		oidcSP := a.getOIDCSP()
+		if oidcSP == nil {
+			return nil, errors.Errorf("parsing OIDC token, OIDC is not configured")
+		}
+
+		email, err := oidcSP.ValidateJWT(idToken[1])
+		if err != nil {
+			return nil, errors.Errorf("parsing OIDC token: %v", err)
+		}
+
+		return &auth.TokenInfo{Subject: email, Source: auth.TokenInfo_AUTHENTICATE}, nil
+	}
+
 	// Lookup the token
 	var tokenInfo auth.TokenInfo
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokenInfo); err != nil {
